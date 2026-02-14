@@ -1,4 +1,6 @@
-import { collection, onSnapshot, deleteDoc, doc } from "firebase/firestore";
+
+import { collection, onSnapshot, deleteDoc, doc, updateDoc } from "firebase/firestore";
+
 import { useEffect, useState } from "react";
 import { auth, db } from "../firebase";
 import { signOut } from "firebase/auth";
@@ -31,60 +33,78 @@ export default function AdminDashboard() {
   const handleLogout = async () => {
     await signOut(auth);
   };
+const handleEditDate = async (report) => {
+  const newDate = prompt("Enter new date & time", report.date);
+  if (!newDate) return;
 
-  const filteredReports = reports.filter((r) => {
-    const matchSearch = r.name?.toLowerCase().includes(search.toLowerCase());
-    const matchDate = dateFilter ? r.date?.includes(dateFilter) : true;
-    return matchSearch && matchDate;
+  await updateDoc(doc(db, "workReports", report.id), {
+    date: newDate,
   });
+};
+
+const filteredReports = reports.filter((r) => {
+  const matchSearch = r.name?.toLowerCase().includes(search.toLowerCase());
+
+  let matchDate = true;
+
+  if (dateFilter && r.date) {
+    const selected = new Date(dateFilter).toDateString();
+    const reportDate = new Date(r.date).toDateString();
+
+    matchDate = selected === reportDate;
+  }
+
+  return matchSearch && matchDate;
+});
+
+
 
   const totalReports = reports.length;
   const today = new Date().toLocaleDateString();
   const todayReports = reports.filter((r) => r.date?.includes(today)).length;
 
- const exportAllPDF = () => {
-   const docPDF = new jsPDF("p", "mm", "a4");
+  const exportAllPDF = () => {
+    const docPDF = new jsPDF("p", "mm", "a4");
 
-   docPDF.setFontSize(16);
-   docPDF.text("All Work Reports", 14, 15);
+    docPDF.setFontSize(16);
+    docPDF.text("All Work Reports", 14, 15);
 
-   const tableData = filteredReports.map((r) => [
-     r.name || "-",
-     r.date || "-",
-     r.work || "-",
-   ]);
+    const tableData = filteredReports.map((r) => [
+      r.name || "-",
+      r.date || "-",
+      r.work || "-",
+    ]);
 
-  autoTable(docPDF, {
-    startY: 22,
-    head: [["Employee", "Date", "Work"]],
-    body: tableData,
+    autoTable(docPDF, {
+      startY: 22,
+      head: [["Employee", "Date", "Work"]],
+      body: tableData,
 
-    styles: {
-      fontSize: 9,
-      cellPadding: 3,
-      overflow: "linebreak",
-      valign: "top",
-    },
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        overflow: "linebreak",
+        valign: "top",
+      },
 
-    headStyles: {
-      fillColor: [41, 128, 185],
-      textColor: 255,
-    },
+      headStyles: {
+        fillColor: [41, 128, 185],
+        textColor: 255,
+      },
 
-    alternateRowStyles: {
-      fillColor: [240, 240, 240], // 🔥 light gray for 2nd row
-    },
+      alternateRowStyles: {
+        fillColor: [240, 240, 240], // 🔥 light gray for 2nd row
+      },
 
-    columnStyles: {
-      0: { cellWidth: 40 },
-      1: { cellWidth: 40 },
-      2: { cellWidth: 90 },
-    },
-  });
+      columnStyles: {
+        0: { cellWidth: 40 },
+        1: { cellWidth: 40 },
+        2: { cellWidth: 90 },
+      },
+    });
 
-   docPDF.save("All_Work_Reports.pdf");
- };
-
+    docPDF.save("All_Work_Reports.pdf");
+  };
 
   const downloadSinglePDF = (report) => {
     const docPDF = new jsPDF();
@@ -205,6 +225,12 @@ export default function AdminDashboard() {
                       className="bg-red-600 hover:bg-red-700 px-3 py-1 rounded text-sm"
                     >
                       Delete
+                    </button>
+                    <button
+                      onClick={() => handleEditDate(report)}
+                      className="bg-yellow-500 hover:bg-yellow-600 px-3 py-1 rounded text-sm"
+                    >
+                      Edit Date
                     </button>
                   </div>
                 </td>
