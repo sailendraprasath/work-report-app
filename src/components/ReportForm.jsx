@@ -1,67 +1,96 @@
-import { addDoc, collection, serverTimestamp } from "firebase/firestore";
+import { useState, useEffect } from "react";
+import { collection, addDoc, updateDoc, doc } from "firebase/firestore";
 import { db, auth } from "../firebase";
-import { useState } from "react";
-import toast, { Toaster } from "react-hot-toast";
-import { motion } from "framer-motion";
 
-export default function ReportForm() {
+export default function ReportForm({ editingReport, cancelEdit }) {
   const [work, setWork] = useState("");
-  const [loading, setLoading] = useState(false);
 
-  const submitReport = async () => {
-    if (!work.trim()) {
-      toast.error("Please enter some work before submitting!");
-      return;
+  useEffect(() => {
+    if (editingReport) {
+      setWork(editingReport.work);
     }
+  }, [editingReport]);
 
-    try {
-      setLoading(true);
+  const getDateTime = () => {
+    return new Date().toLocaleString("en-IN", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    });
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+
+    if (!work.trim()) return;
+
+    const now = getDateTime();
+
+    if (editingReport) {
+      // UPDATE → date & time also change
+      await updateDoc(doc(db, "workReports", editingReport.id), {
+        work: work,
+        date: now,
+      });
+    } else {
+      // ADD NEW
       await addDoc(collection(db, "workReports"), {
         userId: auth.currentUser.uid,
         name: auth.currentUser.email,
         work,
-        date: new Date().toLocaleString(),
-        createdAt: serverTimestamp(),
+        date: now,
       });
-
-      setWork("");
-      toast.success("Report submitted successfully!");
-    } catch (err) {
-      console.error(err);
-      toast.error("Failed to submit report.");
-    } finally {
-      setLoading(false);
     }
+
+    setWork("");
+    cancelEdit && cancelEdit();
   };
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.5, ease: "easeOut" }}
-      className="bg-gradient-to-br from-purple-800/30 to-black/20 p-6 sm:p-8 rounded-2xl shadow-lg w-full sm:max-w-lg mx-auto mb-6 border border-purple-600/40"
+    <form
+      onSubmit={handleSubmit}
+      className="bg-purple-900/30 p-6 rounded-xl mb-6"
     >
-      <Toaster position="top-right" reverseOrder={false} />
+      <h2 className="text-lg font-semibold mb-4">
+        {editingReport ? "Edit Work Report" : "Add Work Report"}
+      </h2>
+
+      {editingReport && (
+        <p className="text-sm text-gray-400 mb-3">
+          Last updated: {editingReport.date}
+        </p>
+      )}
 
       <textarea
-        className="w-full p-4 rounded-xl bg-white/20 text-white placeholder-white focus:outline-none focus:ring-2 focus:ring-purple-500 transition-all resize-none"
-        rows="5"
-        placeholder="Enter today's work..."
         value={work}
         onChange={(e) => setWork(e.target.value)}
+        placeholder="Enter your work..."
+        className="w-full p-3 mb-4 rounded bg-black/30 border border-purple-600"
+        rows="4"
+        required
       />
 
-      <motion.button
-        whileHover={{ scale: 1.03 }}
-        whileTap={{ scale: 0.97 }}
-        onClick={submitReport}
-        disabled={loading}
-        className={`mt-4 w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold px-6 py-3 rounded-xl transition-colors shadow-md ${
-          loading ? "opacity-60 cursor-not-allowed" : ""
-        }`}
-      >
-        {loading ? "Submitting..." : "Submit Report"}
-      </motion.button>
-    </motion.div>
+      <div className="flex gap-3">
+        <button className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded">
+          {editingReport ? "Update" : "Submit"}
+        </button>
+
+        {editingReport && (
+          <button
+            type="button"
+            onClick={() => {
+              setWork(""); // 🔥 clear textarea
+              cancelEdit(); // 🔥 exit edit mode
+            }}
+            className="bg-gray-600 hover:bg-gray-700 px-4 py-2 rounded"
+          >
+            Cancel
+          </button>
+        )}
+      </div>
+    </form>
   );
 }

@@ -2,6 +2,7 @@ import { deleteDoc, doc, updateDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import toast from "react-hot-toast";
 
 export default function ReportCard({ report, isAdmin }) {
@@ -9,7 +10,11 @@ export default function ReportCard({ report, isAdmin }) {
   const [workContent, setWorkContent] = useState(report.work);
   const [saving, setSaving] = useState(false);
 
-  const handleDelete = async () => {
+  const navigate = useNavigate();
+
+  const handleDelete = async (e) => {
+    e.stopPropagation(); // 🚫 prevent card click
+
     if (!confirm(`Are you sure you want to delete "${report.name}"?`)) return;
 
     try {
@@ -26,18 +31,26 @@ export default function ReportCard({ report, isAdmin }) {
     }
   };
 
-  const handleUpdate = async () => {
+  const handleUpdate = async (e) => {
+    e.stopPropagation(); // 🚫 prevent card click
+
     try {
-      setSaving(true); // start loading
+      setSaving(true);
       await updateDoc(doc(db, "workReports", report.id), {
         work: workContent,
       });
-      toast.success("Report saved successfully!"); // ✅ toast on save
+      toast.success("Report saved successfully!");
     } catch (err) {
       console.error(err);
       toast.error("Failed to save report.");
     } finally {
-      setSaving(false); // end loading
+      setSaving(false);
+    }
+  };
+
+  const openFullReport = () => {
+    if (isAdmin) {
+      navigate(`/report/${report.id}`);
     }
   };
 
@@ -45,17 +58,19 @@ export default function ReportCard({ report, isAdmin }) {
     <AnimatePresence>
       {visible && (
         <motion.div
+          onClick={openFullReport} // 👈 click card
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, x: 50, scale: 0.9 }}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className="bg-gradient-to-br from-purple-800/30 to-black/20 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow w-full sm:max-w-md mx-auto mb-6 border border-purple-600/40 flex flex-col"
+          className="cursor-pointer bg-gradient-to-br from-purple-800/30 to-black/20 p-6 rounded-2xl shadow-lg hover:shadow-2xl transition-shadow w-full sm:max-w-md mx-auto mb-6 border border-purple-600/40 flex flex-col"
           style={{ maxHeight: "400px" }}
         >
           <div className="flex items-center justify-between">
             <h3 className="font-bold text-lg sm:text-xl text-white tracking-wide">
               {report.name}
             </h3>
+
             {isAdmin && (
               <button
                 onClick={handleDelete}
@@ -71,6 +86,7 @@ export default function ReportCard({ report, isAdmin }) {
           {/* Scrollable textarea */}
           <textarea
             value={workContent}
+            onClick={(e) => e.stopPropagation()} // 🚫 prevent navigation while editing
             onChange={(e) => setWorkContent(e.target.value)}
             className="mt-4 flex-1 w-full resize-none bg-black/30 text-gray-200 p-2 rounded-lg border border-purple-600/40 overflow-y-auto focus:outline-none focus:ring-2 focus:ring-purple-500"
             style={{ maxHeight: "250px" }}
